@@ -1,0 +1,7 @@
+project_id = "yzksvaccmhbppvsysmne"
+
+[functions.generate-questions]
+verify_jwt = false
+
+[functions.grade-answer]
+verify_jwt = false
