@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.grade-answer]
 verify_jwt = false
+
+[functions.ocr-extract]
+verify_jwt = false

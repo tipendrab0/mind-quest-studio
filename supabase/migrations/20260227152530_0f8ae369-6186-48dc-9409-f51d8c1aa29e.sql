@@ -1,0 +1,1 @@
+ALTER TABLE public.chapter_files ADD COLUMN extracted_text text;

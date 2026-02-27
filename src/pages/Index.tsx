@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, GraduationCap, ArrowLeft, Sparkles } from "lucide-react";
+import { BookOpen, GraduationCap, ArrowLeft, Sparkles, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChapterList } from "@/components/ChapterList";
 import { FileManager } from "@/components/FileManager";
@@ -27,9 +27,12 @@ const Index = () => {
       }
 
       try {
-        // Fetch content from all files
+        // Fetch content from all files — use extracted_text for OCR files, download for text files
         const contents = await Promise.all(
-          files.map((f) => getFileContent(f.file_path).catch(() => `[Could not read ${f.file_name}]`))
+          files.map(async (f) => {
+            if (f.extracted_text) return f.extracted_text;
+            return getFileContent(f.file_path).catch(() => `[Could not read ${f.file_name}]`);
+          })
         );
         const combinedContent = contents.join("\n\n---\n\n");
 
@@ -57,18 +60,18 @@ const Index = () => {
   if (view === "quiz") {
     return (
       <div className="min-h-screen bg-background">
-        <header className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur-sm">
+        <header className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur-md">
           <div className="mx-auto flex max-w-4xl items-center gap-3 px-4 py-3">
-            <Button variant="ghost" size="sm" onClick={() => setView("dashboard")} className="gap-1.5">
+            <Button variant="ghost" size="sm" onClick={() => setView("dashboard")} className="gap-1.5 rounded-full">
               <ArrowLeft className="h-4 w-4" /> Back
             </Button>
             <div className="flex-1">
-              <h1 className="text-sm font-semibold">{selectedChapter?.name}</h1>
-              <p className="text-xs text-muted-foreground">{questions.length} questions</p>
+              <h1 className="font-semibold">{selectedChapter?.name}</h1>
+              <p className="text-xs text-muted-foreground">{questions.length} questions · AI Generated</p>
             </div>
           </div>
         </header>
-        <main className="mx-auto max-w-4xl space-y-4 px-4 py-6">
+        <main className="mx-auto max-w-4xl space-y-5 px-4 py-6">
           {questions.map((q, i) => (
             <QuestionCard key={i} question={q} index={i} />
           ))}
@@ -80,10 +83,10 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-card/50">
+      <header className="border-b border-border bg-card/50 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-4 sm:px-6">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
-            <GraduationCap className="h-5 w-5 text-primary-foreground" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-primary/20">
+            <GraduationCap className="h-6 w-6 text-primary-foreground" />
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight">StudyForge</h1>
@@ -94,35 +97,37 @@ const Index = () => {
 
       {/* Hero */}
       <div className="border-b border-border bg-gradient-to-br from-primary/5 via-background to-chapter/5">
-        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+        <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             className="max-w-xl"
           >
-            <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-              <Sparkles className="h-3 w-3" /> AI Question Generator & Examiner
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-xs font-semibold text-primary">
+              <Sparkles className="h-3.5 w-3.5" /> AI Question Generator & Board Examiner
             </div>
-            <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              Upload. Practice. Master.
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Upload. Practice. <span className="text-primary">Master.</span>
             </h2>
-            <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-              Organize your study materials by chapter, generate exam-quality questions with AI, 
+            <p className="mt-3 text-sm text-muted-foreground leading-relaxed max-w-md">
+              Upload handwritten notes or textbooks, generate exam-quality questions with AI, 
               and get detailed feedback from a virtual board examiner.
             </p>
+            <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1"><Brain className="h-3.5 w-3.5 text-primary" /> Handwriting Recognition</span>
+              <span className="flex items-center gap-1"><Sparkles className="h-3.5 w-3.5 text-primary" /> AI Grading</span>
+            </div>
           </motion.div>
         </div>
       </div>
 
       {/* Main Content */}
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <div className="grid gap-6 lg:grid-cols-12">
-          {/* Sidebar: Chapters */}
           <div className="lg:col-span-3">
             <ChapterList onSelect={setSelectedChapter} selectedId={selectedChapter?.id} />
           </div>
 
-          {/* Middle: Files */}
           <div className="lg:col-span-5">
             <AnimatePresence mode="wait">
               {selectedChapter ? (
@@ -138,18 +143,20 @@ const Index = () => {
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border p-12 text-center"
+                  className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border p-16 text-center"
                 >
-                  <BookOpen className="mb-3 h-10 w-10 text-muted-foreground/40" />
-                  <p className="text-sm text-muted-foreground">
+                  <BookOpen className="mb-3 h-12 w-12 text-muted-foreground/30" />
+                  <p className="text-sm font-medium text-muted-foreground">
                     Select a chapter to manage files
+                  </p>
+                  <p className="text-xs text-muted-foreground/60 mt-1">
+                    Upload images, PDFs, or text files
                   </p>
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
 
-          {/* Right: Quiz Settings */}
           <div className="lg:col-span-4">
             <QuizSettings
               onStart={handleGenerate}
