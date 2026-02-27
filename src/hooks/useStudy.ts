@@ -38,7 +38,7 @@ export function useChapterFiles(chapterId: string | undefined) {
 export function useCreateChapter() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (chapter: { name: string; subject?: string; description?: string }) => {
+    mutationFn: async (chapter: { name: string; description?: string }) => {
       const { data, error } = await supabase.from("chapters").insert(chapter).select().single();
       if (error) throw error;
       return data;
@@ -76,20 +76,54 @@ export function useUploadFile() {
         .upload(filePath, file);
       if (uploadError) throw uploadError;
 
+      // Check if it's an image or PDF that needs OCR
+      const isImage = file.type.startsWith("image/");
+      const isPdf = file.type === "application/pdf";
+      let extractedText: string | null = null;
+
+      if (isImage || isPdf) {
+        try {
+          const base64 = await fileToBase64(file);
+          const { data, error } = await supabase.functions.invoke("ocr-extract", {
+            body: { imageBase64: base64, mimeType: file.type, purpose: "study" },
+          });
+          if (!error && data?.text) {
+            extractedText = data.text;
+          }
+        } catch (ocrErr) {
+          console.error("OCR failed, uploading without extraction:", ocrErr);
+        }
+      }
+
       const { error: dbError } = await supabase.from("chapter_files").insert({
         chapter_id: chapterId,
         file_name: file.name,
         file_path: filePath,
         file_size: file.size,
         content_type: file.type,
+        extracted_text: extractedText,
       });
       if (dbError) throw dbError;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["chapter-files"] });
-      toast.success("File uploaded!");
+      toast.success("File uploaded & processed!");
     },
     onError: (e) => toast.error(e.message),
+  });
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove the data URL prefix (e.g., "data:image/png;base64,")
+      const base64 = result.split(",")[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
 }
 
@@ -158,6 +192,21 @@ export function useGradeAnswer() {
       if (error) throw error;
       if (data.error) throw new Error(data.error);
       return data as GradeResult;
+    },
+    onError: (e) => toast.error(e.message),
+  });
+}
+
+export function useOcrExtract() {
+  return useMutation({
+    mutationFn: async ({ file }: { file: File }) => {
+      const base64 = await fileToBase64(file);
+      const { data, error } = await supabase.functions.invoke("ocr-extract", {
+        body: { imageBase64: base64, mimeType: file.type, purpose: "answer" },
+      });
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      return data.text as string;
     },
     onError: (e) => toast.error(e.message),
   });
